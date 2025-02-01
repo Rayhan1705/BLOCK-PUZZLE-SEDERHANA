@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game Rayhan</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #282c34;
+            color: white;
+        }
+        canvas {
+            border: 2px solid white;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tetris Game Rayhan</h1>
+    <p>Score: <span id="score">0</span> | High Score: <span id="highscore">0</span></p>
+    <canvas id="tetris" width="300" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById("tetris");
+        const context = canvas.getContext("2d");
+        const scoreDisplay = document.getElementById("score");
+        const highScoreDisplay = document.getElementById("highscore");
+        const ROWS = 20;
+        const COLS = 10;
+        const SIZE = 30;
+        let score = 0;
+        let highScore = localStorage.getItem("highScore") || 0;
+        highScoreDisplay.textContent = highScore;
+
+        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        
+        const shapes = [
+            [[1, 1, 1, 1]],
+            [[1, 1], [1, 1]],
+            [[0, 1, 1], [1, 1, 0]],
+            [[1, 1, 0], [0, 1, 1]],
+            [[1, 1, 1], [0, 1, 0]],
+            [[1, 1, 1], [1, 0, 0]],
+            [[1, 1, 1], [0, 0, 1]]
+        ];
+        
+        function drawGrid() {
+            context.strokeStyle = "gray";
+            for (let r = 0; r <= ROWS; r++) {
+                context.beginPath();
+                context.moveTo(0, r * SIZE);
+                context.lineTo(COLS * SIZE, r * SIZE);
+                context.stroke();
+            }
+            for (let c = 0; c <= COLS; c++) {
+                context.beginPath();
+                context.moveTo(c * SIZE, 0);
+                context.lineTo(c * SIZE, ROWS * SIZE);
+                context.stroke();
+            }
+        }
+        
+        function randomPiece() {
+            return {
+                shape: shapes[Math.floor(Math.random() * shapes.length)],
+                row: 0,
+                col: Math.floor(COLS / 2) - 1
+            };
+        }
+        
+        let piece = randomPiece();
+        
+        function drawBoard() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) {
+                        context.fillStyle = "red";
+                        context.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
+                        context.strokeStyle = "black";
+                        context.strokeRect(c * SIZE, r * SIZE, SIZE, SIZE);
+                    }
+                }
+            }
+            drawPiece();
+        }
+        
+        function drawPiece() {
+            context.fillStyle = "cyan";
+            piece.shape.forEach((row, rIdx) => {
+                row.forEach((cell, cIdx) => {
+                    if (cell) {
+                        let x = (piece.col + cIdx) * SIZE;
+                        let y = (piece.row + rIdx) * SIZE;
+                        context.fillRect(x, y, SIZE, SIZE);
+                        context.strokeStyle = "black";
+                        context.strokeRect(x, y, SIZE, SIZE);
+                    }
+                });
+            });
+        }
+        
+        function moveDown() {
+            piece.row++;
+            if (collision()) {
+                piece.row--;
+                placePiece();
+                clearLines();
+                piece = randomPiece();
+                if (collision()) {
+                    alert("Game Over");
+                    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+                    score = 0;
+                }
+            }
+            drawBoard();
+        }
+        
+        function collision() {
+            return piece.shape.some((row, rIdx) =>
+                row.some((cell, cIdx) => {
+                    if (cell) {
+                        let newRow = piece.row + rIdx;
+                        let newCol = piece.col + cIdx;
+                        return newRow >= ROWS || newCol < 0 || newCol >= COLS || board[newRow][newCol];
+                    }
+                    return false;
+                })
+            );
+        }
+        
+        function placePiece() {
+            piece.shape.forEach((row, rIdx) => {
+                row.forEach((cell, cIdx) => {
+                    if (cell) {
+                        board[piece.row + rIdx][piece.col + cIdx] = 1;
+                    }
+                });
+            });
+        }
+        
+        function clearLines() {
+            let cleared = 0;
+            board = board.filter(row => {
+                if (row.every(cell => cell === 1)) {
+                    cleared++;
+                    return false;
+                }
+                return true;
+            });
+            while (board.length < ROWS) {
+                board.unshift(Array(COLS).fill(0));
+            }
+            score += cleared * 10;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("highScore", highScore);
+            }
+            scoreDisplay.textContent = score;
+            highScoreDisplay.textContent = highScore;
+        }
+        
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowLeft" && piece.col > 0) {
+                piece.col--;
+                if (collision()) piece.col++;
+            } else if (event.key === "ArrowRight" && piece.col < COLS - piece.shape[0].length) {
+                piece.col++;
+                if (collision()) piece.col--;
+            } else if (event.key === "ArrowDown") {
+                moveDown();
+            } else if (event.key === "ArrowUp") {
+                rotatePiece();
+            }
+            drawBoard();
+        });
+        
+        function rotatePiece() {
+            const rotated = piece.shape[0].map((_, index) => piece.shape.map(row => row[index])).reverse();
+            const oldCol = piece.col;
+            piece.col = Math.max(0, Math.min(COLS - rotated[0].length, piece.col));
+            const oldShape = piece.shape;
+            piece.shape = rotated;
+            if (collision()) piece.shape = oldShape, piece.col = oldCol;
+        }
+        
+        setInterval(moveDown, 1000);
+    </script>
+</body>
+</html>
